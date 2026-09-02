@@ -39,6 +39,19 @@
         }
         .top-banner a:hover { text-decoration: none; }
 
+        .notice-banner {
+            display: none;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 12px 20px;
+            text-align: center;
+            border-radius: 8px;
+            max-width: 800px;
+            margin: 15px auto 0 auto;
+            font-weight: 500;
+        }
+
         .header-container { text-align: center; margin-bottom: 20px; margin-top: 20px;}
         h1 {
             color: #2c3e50;
@@ -351,6 +364,10 @@
     <a href="#suggestionBox">Report Bug</a>
 </div>
 
+<div id="loginNoticeBanner" class="notice-banner">
+    👋 Welcome to our new domain! Please click <strong>"Sign in to Sync"</strong> below to load your cloud-saved plan.
+</div>
+
 <div class="header-container">
     <h1>Faculty of Engineering Course Planner</h1>
 
@@ -482,36 +499,29 @@
 </footer>
 
 <script type="module">
-// ==========================================
-    // MIGRATION & HASH PARSING LOGIC
     // ==========================================
-    const hash = window.location.hash;
-    let shouldPromptLogin = false;
+    // CLIENT HASH MIGRATION LOGIC (NO 414 ERRORS)
+    // ==========================================
+    const currentHash = window.location.hash;
+    const loginNotice = document.getElementById('loginNoticeBanner');
 
-    if (hash.startsWith('#migration=')) {
+    if (currentHash.startsWith('#migration=')) {
         try {
-            const rawBase64 = hash.replace('#migration=', '');
+            const rawBase64 = decodeURIComponent(currentHash.replace('#migration=', ''));
             const rawJson = decodeURIComponent(escape(atob(rawBase64)));
             const parsedData = JSON.parse(rawJson);
-            
             for (const key in parsedData) {
                 if (parsedData.hasOwnProperty(key)) {
                     localStorage.setItem(key, parsedData[key]);
                 }
             }
-            // Scrub the hash from URL clean
             window.history.replaceState(null, document.title, window.location.pathname);
-            alert("Your saved courses have been successfully transferred to cufeplan.tech!");
         } catch (err) {
-            console.error("Failed to unpack migration data:", err);
+            console.error("Migration error:", err);
         }
-    } else if (hash.includes('#promptLogin')) {
-        shouldPromptLogin = true;
+    } else if (currentHash.includes('#promptLogin')) {
+        loginNotice.style.display = 'block';
         window.history.replaceState(null, document.title, window.location.pathname);
-    }
-
-    if (promptLoginParam) {
-        window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -556,7 +566,7 @@
             { id: "aem-c48", semester: "Semester 7", code: "AEMS481", name: "Graduation Project-1", credits: 1 }, { id: "aem-c49", semester: "Semester 7", code: "AERSXXX", name: "ELECTIVE (4) E-2", credits: 2 }, { id: "aem-c50", semester: "Semester 7", code: "AERSXXX", name: "ELECTIVE (5) E-2", credits: 2 }, { id: "aem-c51", semester: "Semester 7", code: "AERS414", name: "Intro to Microcontroller", credits: 3 }, { id: "aem-c52", semester: "Semester 7", code: "AERS416", name: "Airtransport System Analysis", credits: 3 }, { id: "aem-c53", semester: "Semester 7", code: "AERS412", name: "Aircraft Structures", credits: 3 }, { id: "aem-c54", semester: "Semester 7", code: "AERSXXX", name: "ELECTIVE (6) E-2", credits: 3 }, { id: "aem-c55", semester: "Semester 7", code: "AERSXXX", name: "ELECTIVE (7) E-2", credits: 2 },
             { id: "aem-c56", semester: "Semester 8", code: "AEMS482", name: "Graduation Project-2", credits: 3 }, { id: "aem-c57", semester: "Semester 8", code: "AERS420", name: "Aviation Laws & Airworthiness", credits: 2 }, { id: "aem-c58", semester: "Semester 8", code: "AERSXXX", name: "ELECTIVE (8) E-2", credits: 3 }, { id: "aem-c59", semester: "Semester 8", code: "AERSXXX", name: "ELECTIVE (9) E-2", credits: 3 }, { id: "aem-c60", semester: "Semester 8", code: "AERSXXX", name: "ELECTIVE (10) E-2", credits: 3 }, { id: "aem-c61", semester: "Semester 8", code: "AERS424", name: "Flight Mech, Stability & Ctrl", credits: 3 }, { id: "aem-c62", semester: "Semester 8", code: "AERS428", name: "Aviation Organization", credits: 2 }
         ],
-                      "Architectural Engineering (AET)": [
+                        "Architectural Engineering (AET)": [
             { id: "aet-c1", semester: "Semester 1", code: "CHES001", name: "Chemistry for Engineers", credits: 2 }, { id: "aet-c2", semester: "Semester 1", code: "GENS009", name: "Elective E-A (Intro to Design Thinking)", credits: 2 }, { id: "aet-c3", semester: "Semester 1", code: "INTS001", name: "Engineering Graphics", credits: 3 }, { id: "aet-c4", semester: "Semester 1", code: "PHYS001", name: "Mechanical Properties of Matter", credits: 3 }, { id: "aet-c5", semester: "Semester 1", code: "EMCS001", name: "Engineering Mechanics Dynamics", credits: 3 }, { id: "aet-c6", semester: "Semester 1", code: "INTS005", name: "Information Technology", credits: 2 }, { id: "aet-c7", semester: "Semester 1", code: "MTHS002", name: "Calculus 1", credits: 3 }, { id: "aet-c8", semester: "Semester 1", code: "GENS004", name: "Proficiency and Capacity", credits: 1 },
             { id: "aet-c9", semester: "Semester 2", code: "GENS001", name: "Critical and Creative Thinking", credits: 2 }, { id: "aet-c10", semester: "Semester 2", code: "ARCS107", name: "Architectural Design 1", credits: 3 }, { id: "aet-c11", semester: "Semester 2", code: "ARCS105", name: "Intro to Building Construction", credits: 3 }, { id: "aet-c12", semester: "Semester 2", code: "EMCS002", name: "Eng Mechanics - Statics", credits: 2 }, { id: "aet-c13", semester: "Semester 2", code: "PHYS002", name: "Electricity and Magnetism", credits: 3 }, { id: "aet-c14", semester: "Semester 2", code: "ARCS106", name: "Digital Rep. for Architects", credits: 3 }, { id: "aet-c15", semester: "Semester 2", code: "MTHS003", name: "Calculus 2", credits: 3 },
             { id: "aet-c16", semester: "Semester 3", code: "ARCS101", name: "Intro to History of Arch.", credits: 3 }, { id: "aet-c17", semester: "Semester 3", code: "ARCS206", name: "Architectural Design-2", credits: 3 }, { id: "aet-c18", semester: "Semester 3", code: "ARCS205", name: "Building Technologies-1", credits: 2 }, { id: "aet-c19", semester: "Semester 3", code: "ARCS108", name: "Visual Perception and Art", credits: 2 }, { id: "aet-c20", semester: "Semester 3", code: "ARCS109", name: "Intro to Design Computing", credits: 2 }, { id: "aet-c21", semester: "Semester 3", code: "STRS111", name: "Structural Analysis-1", credits: 3 }, { id: "aet-c22", semester: "Semester 3", code: "MTHS005", name: "Intro to Probability & Stats", credits: 3 }, { id: "aet-c23", semester: "Semester 3", code: "AETS280", name: "Engineering Seminar", credits: 1 },
@@ -1110,8 +1120,12 @@
         if(!isFirebaseReady) { alert("Firebase not configured!"); return; }
         const provider = new GoogleAuthProvider();
         signInWithPopup(auth, provider).catch(error => {
-            console.error(error);
-            alert("Sign in failed: " + error.message);
+            console.error("Sign-in error:", error);
+            if (error.code === 'auth/unauthorized-domain') {
+                alert("Please add cufeplan.tech to Authorized Domains in your Firebase Console!");
+            } else {
+                alert("Sign in failed: " + error.message);
+            }
         });
     });
 
@@ -1121,9 +1135,10 @@
         });
     });
 
-onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         if (user) {
+            loginNotice.style.display = 'none';
             googleBtn.style.display = 'none';
             userInfo.style.display = 'flex';
             userAvatar.src = user.photoURL;
@@ -1135,16 +1150,6 @@ onAuthStateChanged(auth, async (user) => {
             googleBtn.style.display = 'flex';
             userInfo.style.display = 'none';
             syncStatus.textContent = "Local Mode (Offline)";
-
-            // Prompt users coming from the old site who used Firebase
-            if (shouldPromptLogin) {
-                shouldPromptLogin = false;
-                setTimeout(() => {
-                    if (confirm("You have cloud-saved data on your account! Would you like to sign in to Google now to load it?")) {
-                        googleBtn.click();
-                    }
-                }, 300);
-            }
         }
     });
 
