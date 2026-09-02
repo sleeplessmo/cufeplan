@@ -482,28 +482,32 @@
 </footer>
 
 <script type="module">
+// ==========================================
+    // MIGRATION & HASH PARSING LOGIC
     // ==========================================
-    // MIGRATION & URL PARSING LOGIC
-    // ==========================================
-    const urlParams = new URLSearchParams(window.location.search);
-    const migrationDataParam = urlParams.get('migrationData');
-    const promptLoginParam = urlParams.get('promptLogin');
+    const hash = window.location.hash;
+    let shouldPromptLogin = false;
 
-    if (migrationDataParam) {
+    if (hash.startsWith('#migration=')) {
         try {
-            const rawJson = decodeURIComponent(atob(migrationDataParam));
+            const rawBase64 = hash.replace('#migration=', '');
+            const rawJson = decodeURIComponent(escape(atob(rawBase64)));
             const parsedData = JSON.parse(rawJson);
+            
             for (const key in parsedData) {
                 if (parsedData.hasOwnProperty(key)) {
                     localStorage.setItem(key, parsedData[key]);
                 }
             }
-            // Clean up the URL query params without reloading
-            window.history.replaceState({}, document.title, window.location.pathname);
-            alert("Your saved courses have been transferred to cufeplan.tech!");
+            // Scrub the hash from URL clean
+            window.history.replaceState(null, document.title, window.location.pathname);
+            alert("Your saved courses have been successfully transferred to cufeplan.tech!");
         } catch (err) {
-            console.error("Failed to unpack migration data", err);
+            console.error("Failed to unpack migration data:", err);
         }
+    } else if (hash.includes('#promptLogin')) {
+        shouldPromptLogin = true;
+        window.history.replaceState(null, document.title, window.location.pathname);
     }
 
     if (promptLoginParam) {
