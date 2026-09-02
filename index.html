@@ -1121,7 +1121,7 @@
         });
     });
 
-    onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         if (user) {
             googleBtn.style.display = 'none';
@@ -1136,10 +1136,11 @@
             userInfo.style.display = 'none';
             syncStatus.textContent = "Local Mode (Offline)";
 
-            // Trigger prompt if directed from the old site
-            if (promptLoginParam) {
+            // Prompt users coming from the old site who used Firebase
+            if (shouldPromptLogin) {
+                shouldPromptLogin = false;
                 setTimeout(() => {
-                    if (confirm("You have cloud-saved data on your account! Would you like to sign in to Google to load it now?")) {
+                    if (confirm("You have cloud-saved data on your account! Would you like to sign in to Google now to load it?")) {
                         googleBtn.click();
                     }
                 }, 300);
