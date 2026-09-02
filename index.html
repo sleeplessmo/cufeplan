@@ -1205,7 +1205,8 @@
         column.className = 'semester-column';
         if (isSummer || title.toLowerCase().includes('summer')) column.classList.add('summer-term');
 
-        column.innerHTML = `<h2><span class="semester-title-text">${displayTitle}</span><div class="semester-stats"><span class="semester-gpa">GPA: 0.00</span><span class="credit-counter">0 CH</span></div></h2><div class="course-list"></div>`;
+        // FIXED CODE: Using escapeHtml to safely inject displayTitle
+        column.innerHTML = `<h2><span class="semester-title-text">${escapeHtml(displayTitle)}</span><div class="semester-stats"><span class="semester-gpa">GPA: 0.00</span><span class="credit-counter">0 CH</span></div></h2><div class="course-list"></div>`;
 
         column.querySelector('h2').addEventListener('click', (e) => {
             if (e.target.isContentEditable || e.target.closest('button, select, input')) return;
