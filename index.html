@@ -336,7 +336,17 @@
         #suggestionForm button { align-self: center; width: 100%; padding: 10px 20px; }
 
         footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
-
+        /* Touch drag support */
+        .course-item {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .course-item [contenteditable="true"] {
+            -webkit-user-select: text;
+            user-select: text;
+        }
         /* === MOBILE OPTIMIZATIONS === */
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -1111,7 +1121,7 @@
             { id: "cie-c61", semester: "Semester 8", code: "CIES482", name: "GRADUATION PROJECT 2", credits: 3 }
         ]
     };
-
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
     const undoStack = [];
     let currentMajor = Object.keys(majorCourseData)[0];
     const plannerContainer = document.getElementById('plannerContainer');
@@ -1262,7 +1272,7 @@
     function createCourseElement(course) {
         const courseEl = document.createElement('div');
         courseEl.className = 'course-item';
-        courseEl.draggable = true;
+        courseEl.draggable = !isTouchDevice;
         courseEl.id = course.id;
         courseEl.dataset.credits = course.credits;
         courseEl.dataset.name = course.name;
@@ -1325,11 +1335,12 @@
         courseEl.appendChild(deleteBtn);
 
         const selector = courseEl.querySelector('.grade-selector');
-        selector.addEventListener('mouseenter', () => { courseEl.setAttribute('draggable', 'false'); });
-        selector.addEventListener('mouseleave', () => { courseEl.setAttribute('draggable', 'true'); });
-        deleteBtn.addEventListener('mouseenter', () => { courseEl.setAttribute('draggable', 'false'); });
-        deleteBtn.addEventListener('mouseleave', () => { courseEl.setAttribute('draggable', 'true'); });
-
+        const setDrag = v => { if (!isTouchDevice) courseEl.setAttribute('draggable', v); };
+        selector.addEventListener('mouseenter', () => setDrag('false'));
+        selector.addEventListener('mouseleave', () => setDrag('true'));
+        deleteBtn.addEventListener('mouseenter', () => setDrag('false'));
+        deleteBtn.addEventListener('mouseleave', () => setDrag('true'));
+        
         courseEl.addEventListener('dragstart', () => {
             draggedItem = courseEl;
             isDragging = true;
@@ -1339,7 +1350,7 @@
             if(draggedItem) { draggedItem.classList.remove('dragging'); }
             draggedItem = null;
             isDragging = false;
-            courseEl.setAttribute('draggable', 'true');
+            setDrag('true');
             clearDropTargets();
         });
 
@@ -1645,91 +1656,143 @@
     }
 
     function addTouchListeners() {
-        let touchDraggedItem = null;
-        let ghostItem = null;
-        let startX, startY;
+        const LONG_PRESS_MS = 280;   // hold time before a card is picked up
+        const MOVE_TOLERANCE = 10;   // px of finger movement that cancels pickup (= user is scrolling)
+        const EDGE = 90;             // px from screen edge where auto-scroll starts
+        const MAX_SCROLL = 18;       // max auto-scroll speed per frame
 
-        plannerContainer.addEventListener('touchstart', e => {
-            if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION' || e.target.closest('.delete-course-btn')) {
-                return;
-            }
+        let pressTimer = null;
+        let pendingItem = null;
+        let activeItem = null;
+        let ghost = null;
+        let offsetX = 0, offsetY = 0;
+        let startX = 0, startY = 0;
+        let touchX = 0, touchY = 0;
+        let rafId = null;
 
-            const target = e.target.closest('.course-item');
-            if (target && !e.target.isContentEditable) {
-                isDragging = true;
-                touchDraggedItem = target;
+        function cancelPress() {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+            pendingItem = null;
+        }
 
-                const rect = target.getBoundingClientRect();
-                ghostItem = target.cloneNode(true);
-                ghostItem.style.position = 'fixed';
-                ghostItem.style.width = `${rect.width}px`;
-                ghostItem.style.height = `${rect.height}px`;
-                ghostItem.style.pointerEvents = 'none';
-                ghostItem.style.opacity = '0.9';
-                ghostItem.style.zIndex = '1000';
-                ghostItem.style.background = '#fff';
-                ghostItem.style.display = 'none';
-                document.body.appendChild(ghostItem);
+        function positionGhost() {
+            if (!ghost) return;
+            ghost.style.transform = `translate3d(${touchX - offsetX}px, ${touchY - offsetY}px, 0) scale(1.03)`;
+        }
 
-                startX = e.touches[0].clientX - rect.left;
-                startY = e.touches[0].clientY - rect.top;
-            }
-        }, { passive: false });
-
-        document.body.addEventListener('touchmove', e => {
-            if (!touchDraggedItem) return;
-
-            const touch = e.touches[0];
-            touchDraggedItem.classList.add('dragging');
-            ghostItem.style.display = 'block';
-            e.preventDefault();
-
-            currentY = touch.clientY;
-            ghostItem.style.left = `${touch.clientX - startX}px`;
-            ghostItem.style.top = `${touch.clientY - startY}px`;
-
-            ghostItem.style.display = 'none';
-            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-            ghostItem.style.display = 'block';
-
-            const dropTargetList = elementBelow ? elementBelow.closest('.course-list') : null;
+        function updateDropTarget() {
+            const el = document.elementFromPoint(touchX, touchY);
+            const list = el ? el.closest('.course-list') : null;
             clearDropTargets();
-
-            if (dropTargetList) {
-                const afterElement = getDragAfterElement(dropTargetList, touch.clientY);
-                if (dropTargetList.childElementCount === 0 || (dropTargetList.childElementCount === 1 && dropTargetList.contains(touchDraggedItem))) {
-                    dropTargetList.classList.add('drop-target-empty'); lastDropTarget = dropTargetList;
-                } else if (afterElement == null) {
-                    const lastElement = dropTargetList.querySelector('.course-item:not(.dragging):last-of-type');
-                    if (lastElement) { lastElement.classList.add('drop-target-bottom'); lastDropTarget = lastElement; }
-                } else {
-                    afterElement.classList.add('drop-target-top'); lastDropTarget = afterElement;
-                }
+            if (!list) return;
+            const afterElement = getDragAfterElement(list, touchY);
+            if (list.childElementCount === 0 || (list.childElementCount === 1 && list.contains(activeItem))) {
+                list.classList.add('drop-target-empty');
+                lastDropTarget = list;
+            } else if (afterElement == null) {
+                const lastElement = list.querySelector('.course-item:not(.dragging):last-of-type');
+                if (lastElement) { lastElement.classList.add('drop-target-bottom'); lastDropTarget = lastElement; }
+            } else {
+                afterElement.classList.add('drop-target-top');
+                lastDropTarget = afterElement;
             }
-        }, { passive: false });
+        }
 
-        document.body.addEventListener('touchend', e => {
-            if (!touchDraggedItem) return;
-            isDragging = false;
+        function dragFrame() {
+            if (!activeItem) return;
+            let dy = 0;
+            const bottomZone = window.innerHeight - EDGE;
+            if (touchY < EDGE) dy = -MAX_SCROLL * Math.min(1, (EDGE - touchY) / EDGE);
+            else if (touchY > bottomZone) dy = MAX_SCROLL * Math.min(1, (touchY - bottomZone) / EDGE);
+            if (dy) window.scrollBy(0, dy);
+            updateDropTarget();
+            rafId = requestAnimationFrame(dragFrame);
+        }
 
-            if(ghostItem && ghostItem.style.display !== 'none') {
-                ghostItem.style.display = 'none';
-                const elementBelow = document.elementFromPoint(touch.changedTouches[0].clientX, touch.changedTouches[0].clientY);
-                const dropTargetList = elementBelow ? elementBelow.closest('.course-list') : null;
+        function beginDrag(item) {
+            pendingItem = null;
+            activeItem = item;
+            const rect = item.getBoundingClientRect();
+            offsetX = touchX - rect.left;
+            offsetY = touchY - rect.top;
 
-                if(dropTargetList) {
-                    const afterElement = getDragAfterElement(dropTargetList, touch.changedTouches[0].clientY);
-                    if (afterElement == null) dropTargetList.appendChild(touchDraggedItem);
-                    else dropTargetList.insertBefore(touchDraggedItem, afterElement);
+            ghost = item.cloneNode(true);
+            ghost.removeAttribute('id');
+            ghost.style.cssText =
+                `position:fixed;left:0;top:0;width:${rect.width}px;margin:0;` +
+                `pointer-events:none;z-index:2000;opacity:0.95;will-change:transform;` +
+                `box-shadow:0 8px 20px rgba(0,0,0,0.25);`;
+            document.body.appendChild(ghost);
+            positionGhost();
+
+            item.classList.add('dragging');
+            if (navigator.vibrate) navigator.vibrate(15);
+            rafId = requestAnimationFrame(dragFrame);
+        }
+
+        function endDrag(drop) {
+            cancelPress();
+            if (!activeItem) return;
+            cancelAnimationFrame(rafId);
+
+            if (drop) {
+                const el = document.elementFromPoint(touchX, touchY);
+                const list = el ? el.closest('.course-list') : null;
+                if (list) {
+                    const afterElement = getDragAfterElement(list, touchY);
+                    if (afterElement == null) list.appendChild(activeItem);
+                    else list.insertBefore(activeItem, afterElement);
                     updateAllCalculations();
                 }
             }
 
-            if(ghostItem) document.body.removeChild(ghostItem);
-            touchDraggedItem.classList.remove('dragging');
-            touchDraggedItem = null;
-            ghostItem = null;
+            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            activeItem.classList.remove('dragging');
+            activeItem = null;
+            ghost = null;
             clearDropTargets();
+        }
+
+        plannerContainer.addEventListener('touchstart', e => {
+            if (activeItem || e.touches.length > 1) return;
+            const target = e.target;
+            if (target.closest('select, option, .delete-course-btn') || target.isContentEditable) return;
+            const item = target.closest('.course-item');
+            if (!item) return;
+
+            const t = e.touches[0];
+            startX = touchX = t.clientX;
+            startY = touchY = t.clientY;
+            pendingItem = item;
+            pressTimer = setTimeout(() => { if (pendingItem) beginDrag(pendingItem); }, LONG_PRESS_MS);
+        }, { passive: true });
+
+        // Non-passive so we can block scrolling ONLY while a card is being dragged
+        document.addEventListener('touchmove', e => {
+            const t = e.touches[0];
+            if (activeItem) {
+                e.preventDefault();
+                touchX = t.clientX;
+                touchY = t.clientY;
+                positionGhost();
+                return;
+            }
+            if (pendingItem && Math.hypot(t.clientX - startX, t.clientY - startY) > MOVE_TOLERANCE) {
+                cancelPress(); // user is scrolling, let the browser handle it
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', e => {
+            if (activeItem) e.preventDefault();
+            endDrag(true);
+        }, { passive: false });
+
+        document.addEventListener('touchcancel', () => endDrag(false));
+
+        // Stop the iOS/Android long-press menu from popping up
+        plannerContainer.addEventListener('contextmenu', e => {
+            if (pendingItem || activeItem) e.preventDefault();
         });
     }
 
